@@ -1,0 +1,25 @@
+{
+    "load_size": 640,
+    "crop_size": null,
+    "batch_size": 1,
+    "shuffle": "True",
+    "repeat": null,
+
+    "epochs": 100,
+    "lr": 0.001,
+    "beta1": 0.99,
+    "save_epoch_freq": 5,
+
+    "loss_mode": "gan",
+    "cycle_weight": 10,
+
+    "input_nc": 1,
+    "output_nc": 1,
+    "ngf": 32,
+    "ndf": 32,
+    "n_blocks": 6,
+    "n_downsampling": 3,
+    "n_layers": 3,
+    "norm": "instance_norm",
+    "padding": "same"
+}
