@@ -6,9 +6,9 @@ import pathlib
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-
 def make_dataset(img_paths,
                  batch_size,
+                 channels,
                  load_size,
                  crop_size,
                  training,
@@ -24,11 +24,7 @@ def make_dataset(img_paths,
             img = tf.io.read_file(img_path)
             img = tf.io.decode_bmp(img)
             img = tf.image.resize(img, [load_size, load_size])
-            if crop_size is not None:
-                img = tf.image.random_crop(img, [crop_size, crop_size, 1])
-            else:
-                img = tf.squeeze(img, -1)
-                img = tf.expand_dims(img, -1)
+            img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
             img = tf.clip_by_value(img, 0, 255.5) / 255.0
             img = img * 2 - 1
             return img
@@ -38,11 +34,6 @@ def make_dataset(img_paths,
             img = tf.io.read_file(img_path)
             img = tf.io.decode_bmp(img)
             img = tf.image.resize(img, [load_size, load_size])
-            if crop_size is not None:
-                img = tf.image.random_crop(img, [crop_size, crop_size, 1])
-            else:
-                img = tf.squeeze(img, -1)
-                img = tf.expand_dims(img, -1)
             img = tf.image.resize(img, [crop_size, crop_size])
             img = tf.clip_by_value(img, 0, 255.0) / 255.0
             ing = img * 2 -1
@@ -55,7 +46,7 @@ def make_dataset(img_paths,
                                     shuffle=shuffle,
                                     repeat=repeat)
 
-def make_zip_dataset(A_image_paths, B_image_paths, batch_size, load_size, crop_size, training, shuffle=True, repeat=False):
+def make_zip_dataset(A_image_paths, B_image_paths, batch_size, channels, load_size, crop_size, training, shuffle=True, repeat=False):
     """ repeat the datasets aligned with the longer dataset """
     
     if repeat:
@@ -67,10 +58,10 @@ def make_zip_dataset(A_image_paths, B_image_paths, batch_size, load_size, crop_s
         else:
             A_repeat = None
             B_repeat = 1
-    A_dataset = make_dataset(img_paths=A_image_paths, batch_size=batch_size,
+    A_dataset = make_dataset(img_paths=A_image_paths, batch_size=batch_size, channels=channels,
                              load_size=load_size, crop_size=crop_size, training=training, 
                              drop_remainder=True, shuffle=shuffle, repeat=A_repeat)
-    B_dataset = make_dataset(img_paths=B_image_paths, batch_size=batch_size,
+    B_dataset = make_dataset(img_paths=B_image_paths, batch_size=batch_size, channels=channels,
                              load_size=load_size, crop_size=crop_size, training=training, 
                              drop_remainder=True, shuffle=shuffle, repeat=B_repeat)
         

@@ -9,12 +9,13 @@ class CycleGANModel():
         self.opt = opt
         self.cycle_weight = opt.cycle_weight
 
-        self.save_epoch_freq = opt.save_epoch_freq
         self.d_loss_fn, self.g_loss_fn = get_adversarial_loss(mode=opt.loss_mode)
                 
         """
-        G_A    -- A -> B
-        G_B    -- B -> A
+        G_A     -- A -> B 
+        G_B     -- B -> A
+        D_A     -- Discriminator for A, B2A
+        D_B     -- Discriminator for B, A2B   
         """
 
         self.G_A = ResGenerator(opt.input_nc, opt.output_nc, opt.ngf, opt.norm, 
@@ -40,6 +41,7 @@ class CycleGANModel():
             A2B2A = self.G_B(A2B, training=True)
             B2A2B = self.G_A(B2A, training=True)
 
+            """ fake logits """
             B2A_d_logits = self.D_A(B2A, training=True)
             A2B_d_logits = self.D_B(A2B, training=True)
 
@@ -61,24 +63,17 @@ class CycleGANModel():
             """ total loss for discriminator """
             A_d_logits = self.D_A(A)
             B_d_logits = self.D_B(B)
-            A_d_loss = self.d_loss_fn(A_d_logits, B2A_d_logits)
-            B_d_loss = self.d_loss_fn(B_d_logits, A2B_d_logits)
-            D_loss = A_d_loss + B_d_loss
+            A_d_loss, B2A_d_loss = self.d_loss_fn(A_d_logits, B2A_d_logits)
+            B_d_loss, A2B_d_loss = self.d_loss_fn(B_d_logits, A2B_d_logits)
+            D_A_loss = A_d_loss + B2A_d_loss
+            D_B_loss = B_d_loss + A2B_d_loss
+            D_loss = D_A_loss + D_B_loss
 
 
         G_gradients = tape.gradient(G_loss, self.G_A.trainable_variables + self.G_B.trainable_variables)
         D_gradients = tape.gradient(D_loss, self.D_A.trainable_variables + self.D_B.trainable_variables)
         self.optimizer_G.apply_gradients(zip(G_gradients, self.G_A.trainable_variables + self.G_B.trainable_variables))
         self.optimizer_D.apply_gradients(zip(D_gradients, self.D_A.trainable_variables + self.D_B.trainable_variables))
-
-        # G_A_gradients = tape.gradient(total_A2B_g_loss, self.G_A.trainable_variables)
-        # G_B_gradients = tape.gradient(total_B2A_g_loss, self.G_B.trainable_variables)
-        # D_A_gradients = tape.gradient(A_d_loss, self.D_A.trainable_variables)
-        # D_B_gradients = tape.gradient(B_d_loss, self.D_B.trainable_variables)
-        # self.optimizer_G_A.apply_gradients(zip(G_A_gradients, self.G_A.trainable_variables))
-        # self.optimizer_G_B.apply_gradients(zip(G_B_gradients, self.G_B.trainable_variables))
-        # self.optimizer_D_A.apply_gradients(zip(D_A_gradients, self.D_A.trainable_variables))
-        # self.optimizer_D_B.apply_gradients(zip(D_B_gradients, self.D_B.trainable_variables))
         
         g_loss_dict = {"A2B_g_loss": A2B_g_loss,
                        "B2A_g_loss": B2A_g_loss,
@@ -94,6 +89,9 @@ class CycleGANModel():
     def calc_cycle_loss(self, real_image, cycled_image):
         loss_cycle = tf.reduce_mean(tf.abs(real_image - cycled_image))
         return loss_cycle
+
+    def feature_loss(self):
+        pass
 
     def sample(self, A, B):
         A2B = self.G_A(A, training=False)

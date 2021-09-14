@@ -1,16 +1,16 @@
 {
     "load_size": 640,
-    "crop_size": null,
-    "batch_size": 1,
+    "crop_size": 640,
+    "batch_size": 4,
     "shuffle": "True",
     "repeat": null,
 
     "epochs": 100,
-    "lr": 0.001,
-    "beta1": 0.99,
+    "lr": 0.0002,
+    "beta1": 0.5,
     "save_epoch_freq": 5,
 
-    "loss_mode": "gan",
+    "loss_mode": "lsgan",
     "cycle_weight": 10,
 
     "input_nc": 1,
