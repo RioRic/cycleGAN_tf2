@@ -3,13 +3,13 @@ from tensorflow import keras
 from .network import ResGenerator, NLayerDiscriminator
 from .loss import get_adversarial_loss
 
-class CycleGANModel():
+
+class CycleGANModel(keras.Model):
     def __init__(self, opt):
+        super(CycleGANModel, self).__init__()
 
         self.opt = opt
         self.cycle_weight = opt.cycle_weight
-
-        self.d_loss_fn, self.g_loss_fn = get_adversarial_loss(mode=opt.loss_mode)
                 
         """
         G_A     -- A -> B 
@@ -29,9 +29,18 @@ class CycleGANModel():
         """ define optimizers """
         self.optimizer_G = keras.optimizers.Adam(learning_rate=opt.lr, beta_1=opt.beta1)
         self.optimizer_D = keras.optimizers.Adam(learning_rate=opt.lr, beta_1=opt.beta1)
+        self.d_loss_fn, self.g_loss_fn = get_adversarial_loss(mode=self.opt.loss_mode)
+        self.train_g_loss_tracker = keras.metrics.Mean(name="g_loss")
+        self.train_d_loss_tracker = keras.metrics.Mean(name="d_loss")
+    
+    @property
+    def metrics(self):
+        """ list metrics need to be reset() """
+        return [self.train_g_loss_tracker, self.train_d_loss_tracker] 
 
     @tf.function
-    def train_step(self, A, B):
+    def train_step(self, data):
+        A, B = data
         with tf.GradientTape(persistent=True) as tape:
             """ generate fake """
             A2B = self.G_A(A, training=True)
@@ -54,11 +63,17 @@ class CycleGANModel():
             B2A2B_cycle_loss = self.calc_cycle_loss(B, B2A2B)
             total_cycle_loss = 0.5 * (A2B2A_cycle_loss + B2A2B_cycle_loss)
 
+            """ idenity loss """
+            A2A = self.G_B(A, training=True)
+            B2B = self.G_A(B, training=True)
+            A2A_idenity_loss = self.calc_idenity_loss(A, A2A)
+            B2B_idenity_loss = self.calc_idenity_loss(B, B2B)
+            total_idenity_loss = 0.5 * (A2A_idenity_loss + B2B_idenity_loss)
 
             """" total loss for generator """
             total_A2B_g_loss = A2B_g_loss + total_cycle_loss
             total_B2A_g_loss = B2A_g_loss + total_cycle_loss
-            G_loss = A2B_g_loss + B2A_g_loss + total_cycle_loss * self.opt.cycle_weight
+            G_loss = A2B_g_loss + B2A_g_loss + total_cycle_loss * self.opt.cycle_weight + total_idenity_loss * self.opt.idenity_weight
 
             """ total loss for discriminator """
             A_d_logits = self.D_A(A)
@@ -74,21 +89,30 @@ class CycleGANModel():
         D_gradients = tape.gradient(D_loss, self.D_A.trainable_variables + self.D_B.trainable_variables)
         self.optimizer_G.apply_gradients(zip(G_gradients, self.G_A.trainable_variables + self.G_B.trainable_variables))
         self.optimizer_D.apply_gradients(zip(D_gradients, self.D_A.trainable_variables + self.D_B.trainable_variables))
-        
-        g_loss_dict = {"A2B_g_loss": A2B_g_loss,
-                       "B2A_g_loss": B2A_g_loss,
-                       "A2B2A_cycle_loss": A2B2A_cycle_loss,
-                       "B2A2B_cycle_loss": B2A2B_cycle_loss,
-                       "total_A2B_g_loss": total_A2B_g_loss,
-                       "total_B2A_g_loss": total_B2A_g_loss}
-        d_loss_dict = {"A_d_loss": A_d_loss,
-                       "B_d_loss": B_d_loss}
 
-        return g_loss_dict, d_loss_dict
+        self.train_g_loss_tracker.update_state(G_loss)
+        self.train_d_loss_tracker.update_state(D_loss)
+        
+        loss_dict = {"total_A2B_g_loss": total_A2B_g_loss,
+                     "total_B2A_g_loss": total_B2A_g_loss,
+                     "A_d_loss": A_d_loss,
+                     "B_d_loss": B_d_loss,
+                     "A2B_g_loss": A2B_g_loss,
+                     "B2A_g_l0ss": B2A_g_loss,
+                     "A2B2A_cycle_loss": A2B2A_cycle_loss,
+                     "B2A2B_cycle_loss": B2A2B_cycle_loss,
+                     "A2A_idenity_loss": A2A_idenity_loss,
+                     "B2B_idenity_loss": B2B_idenity_loss}
+
+        return loss_dict
 
     def calc_cycle_loss(self, real_image, cycled_image):
         loss_cycle = tf.reduce_mean(tf.abs(real_image - cycled_image))
         return loss_cycle
+
+    def calc_idenity_loss(self, real_image, idenity_image):
+        loss_idenity = tf.reduce_mean(tf.abs(real_image - idenity_image))
+        return loss_idenity
 
     def feature_loss(self):
         pass

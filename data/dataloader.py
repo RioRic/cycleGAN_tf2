@@ -1,75 +1,74 @@
 import tensorflow as tf
-from .datasets import disk_image_batch_dataset
 import numpy as np
-import h5py
 import pathlib
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-def make_dataset(img_paths,
-                 batch_size,
-                 channels,
-                 load_size,
-                 crop_size,
-                 training,
-                 drop_remainder=True,
-                 shuffle=True,
-                 repeat=True,
-                 ):
-    all_img_paths = list(pathlib.Path(img_paths).glob('*.bmp'))
-    all_img_paths = [str(path) for path in all_img_paths]
-    if training:
-        @tf.function
-        def _map_fn(img_path):
-            img = tf.io.read_file(img_path)
-            img = tf.io.decode_bmp(img)
-            img = tf.image.resize(img, [load_size, load_size])
-            img = tf.image.random_crop(img, [crop_size, crop_size, tf.shape(img)[-1]])
-            img = tf.clip_by_value(img, 0, 255.5) / 255.0
-            img = img * 2 - 1
-            return img
-    else:
-        @tf.function
-        def _map_fn(img_path):
-            img = tf.io.read_file(img_path)
-            img = tf.io.decode_bmp(img)
-            img = tf.image.resize(img, [load_size, load_size])
-            img = tf.image.resize(img, [crop_size, crop_size])
-            img = tf.clip_by_value(img, 0, 255.0) / 255.0
-            ing = img * 2 -1
-            return img
-    
-    return disk_image_batch_dataset(all_img_paths,
-                                    batch_size,
-                                    drop_remainder=drop_remainder,
-                                    map_fn=_map_fn,
-                                    shuffle=shuffle,
-                                    repeat=repeat)
-
-def make_zip_dataset(A_image_paths, B_image_paths, batch_size, channels, load_size, crop_size, training, shuffle=True, repeat=False):
-    """ repeat the datasets aligned with the longer dataset """
-    
-    if repeat:
-        A_repeat = B_repeat = None
-    else:
-        if len(A_image_paths) >= len(B_image_paths):
-            A_repeat = 1
-            B_repeat = None
-        else:
-            A_repeat = None
-            B_repeat = 1
-    A_dataset = make_dataset(img_paths=A_image_paths, batch_size=batch_size, channels=channels,
-                             load_size=load_size, crop_size=crop_size, training=training, 
-                             drop_remainder=True, shuffle=shuffle, repeat=A_repeat)
-    B_dataset = make_dataset(img_paths=B_image_paths, batch_size=batch_size, channels=channels,
-                             load_size=load_size, crop_size=crop_size, training=training, 
-                             drop_remainder=True, shuffle=shuffle, repeat=B_repeat)
+class DataLoader(object):
+    def __init__(self, config):
+        self.datapath = config.datapath
         
-    A_B_dataset= tf.data.Dataset.zip((A_dataset, B_dataset))
+        self.buffer_size = config.buffer_size
+        self.train_batch_size = config.train_batch_size
+        self.test_batch_size = config.test_batch_size
 
-    len_dataset = max(len(A_image_paths), len(B_image_paths)) // batch_size
+        self.resize_size = config.resize_size
+        self.crop_size = config.crop_size
+        self.channel = config.channel
 
-    return A_B_dataset, len_dataset
+    def map(self, image_path):
+        image = tf.io.read_file(image_path)
+        image = tf.io.decode_bmp(image)
+        image = tf.image.resize(image, [self.resize_size, self.resize_size])
+        cropped_image = tf.image.random_crop(image, size=[self.crop_size, self.crop_size, self.channel])
+        mirror_image = tf.image.random_flip_left_right(cropped_image)
+        image = tf.cast(mirror_image, tf.float32)
+        image = image / 255.0 * 2 -1
+        return image
 
+    def load_image_paths(self, path):
+        all_image_paths = list(pathlib.Path(path).glob('*.bmp'))
+        all_image_paths = [str(path) for path in all_image_paths]
+        return all_image_paths
 
-    
+    def make_dataset(self, paths, repeat, training):
+        image_paths = tf.data.Dataset.from_tensor_slices(paths)
+        image_paths = image_paths.shuffle(self.buffer_size)
+        dataset = image_paths.map(self.map, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        if training:
+            dataset = dataset.batch(self.train_batch_size, drop_remainder=True)
+        else:
+            dataset = dataset.batch(self.test_batch_size, drop_remainder=True)
+        dataset = dataset.repeat(repeat).prefetch(tf.data.experimental.AUTOTUNE)
+        return dataset
+
+    def make_zip_dataset(self, A_paths, B_paths, repeat, training):
+        if repeat:
+            repeat_A = repeat_B = None
+        else:
+            if len(A_paths) > len(B_paths):
+                repeat_A = 1
+                repeat_B = None
+            else:
+                repeat_A = None
+                repeat_B = 1
+        dataset_A = self.make_dataset(A_paths, repeat=repeat_A, training=training)
+        dataset_B = self.make_dataset(B_paths, repeat=repeat_B, training=training)
+
+        A_B_dataset= tf.data.Dataset.zip((dataset_A, dataset_B))
+
+        return A_B_dataset
+
+    def get_train_data(self):
+        train_A_path = self.datapath + '/train_A/'
+        train_B_path = self.datapath + '/train_B/'
+        train_A_paths = self.load_image_paths(train_A_path)
+        train_B_paths = self.load_image_paths(train_B_path)
+        print(len(train_A_paths))
+        return self.make_zip_dataset(train_A_paths, train_B_paths, repeat=False, training=True)
+
+    def get_test_data(self):
+        test_A_path = self.datapath + '/test_A/'
+        test_B_path = self.datapath + '/test_B/'
+        test_A_paths = self.load_image_paths(test_A_path)
+        test_B_paths = self.load_image_paths(test_B_path)
+        return self.make_zip_dataset(test_A_paths, test_B_paths, repeat=True, training=False)

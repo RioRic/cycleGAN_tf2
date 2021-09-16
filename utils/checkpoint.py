@@ -28,21 +28,7 @@ def summary(name_data_dict,
             types=['mean', 'std', 'max', 'min', 'sparsity', 'historgram'],
             histogram_buchets=None,
             name='summary'):
-
-
-    def _summary(name, data):
-        if data.shape == ():
-            tf.summary.scalar(name, data, step=step)
-        else:
-            if 'mean' in types:
-                tf.summary.scalar(name + '-mean', tf.math.reduce_mean(data), step=step)
-            if 'std' in types:
-                tf.summary.scalar(name + '-std', tf.math.reduce_std(data), step=step)
-            if 'max' in types:
-                tf.summary.scalar(name + '-max', tf.math.reduce_max(data), step=step)
-            if 'min' in types:
-                tf.summary.scalar(name + '-min', tf.math.reduce_min(data), step=step)
         
     with tf.name_scope(name):
         for name, data in name_data_dict.items():
-            _summary(name, data)
+            tf.summary.scalar(name, data, step=step)

@@ -7,7 +7,7 @@ def get_gan_loss_fn():
     def d_loss_fn(real_logits, fake_logits):
         real_loss = bce(tf.ones_like(real_logits), real_logits)
         fake_loss = bce(tf.zeros_like(fake_logits), fake_logits)
-        return real_loss + fake_loss
+        return real_loss, fake_loss
 
     def g_loss_fn(fake_logits):
         fake_loss = bce(tf.ones_like(fake_logits), fake_logits)
@@ -94,7 +94,7 @@ def gradient_penalty(f, real, fake, mode):
             pred = f(x)
         grad = t.gradient(pred, x)
         norm = tf.norm(tf.reshape(grad, [tf.shape(grad)[0], -1]), axis=1)
-        gp = tf.reduce_mean((norm -1.0)**2)
+        gp = tf.reduce_mean((norm - 1.0)**2)
         return gp
     
     if mode is None:

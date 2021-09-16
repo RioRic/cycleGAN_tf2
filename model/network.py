@@ -14,31 +14,30 @@ def _get_norm_layer(norm):
     else:
         raise ValueError('Normalization not found')
 
-class ResBlock(keras.Model):
+
+class ResBlock(keras.layers.Layer):
     def __init__(self, dim, padding, norm):
         super(ResBlock, self).__init__()
         self.res_block = self.build_res_block(dim, padding, norm)
 
     def build_res_block(self, dim, padding, norm):
-        norm_layer = _get_norm_layer(norm)
-        conv_block = []
-        conv_block += [
+        res_block = []
+        res_block += [
             keras.layers.Conv2D(dim, 3, padding=padding),
-            norm_layer,
+            _get_norm_layer(norm),
             keras.layers.ReLU()
         ]
 
-        conv_block += [
+        res_block += [
             keras.layers.Conv2D(dim, 3, padding=padding),
-            norm_layer
+            _get_norm_layer(norm)
         ]
-        return keras.Sequential(conv_block)
+        return keras.Sequential(res_block)
 
-    def call(self, input):
-        output = input + self.res_block(input)
-        return output
+    def call(self, x):
+        return self.res_block(x) + x
 
-class ResGenerator(keras.Model):
+class ResGenerator(keras.layers.Layer):
     def __init__(self, input_nc, output_nc, fmaps, norm="instance_norm", n_blocks=9, padding="same", n_downsampling=2):
         """ Constructe a resnet generator
         
@@ -53,13 +52,11 @@ class ResGenerator(keras.Model):
         """
         super(ResGenerator, self).__init__()
         assert(n_blocks >= 0)
-
-        norm_layer = _get_norm_layer(norm)
         
         """ 1 """
         model = [
             keras.layers.Conv2D(fmaps, 7, strides=1, padding=padding),
-            norm_layer,
+            _get_norm_layer(norm),
             keras.layers.ReLU()
         ]
         """ downsampling """
@@ -67,7 +64,7 @@ class ResGenerator(keras.Model):
             fmaps *= 2
             model += [
                 keras.layers.Conv2D(fmaps, 3, strides=2, padding=padding),
-                norm_layer,
+                _get_norm_layer(norm),
                 keras.layers.ReLU()
             ]
 
@@ -80,7 +77,7 @@ class ResGenerator(keras.Model):
             fmaps //= 2
             model += [
                 keras.layers.Conv2DTranspose(fmaps, 3, strides=2, padding=padding),
-                norm_layer,
+                _get_norm_layer(norm),
                 keras.layers.ReLU()
             ]
         
@@ -91,10 +88,11 @@ class ResGenerator(keras.Model):
         ]
         self.model =  keras.Sequential(model)
 
-    def call(self, input):
-        return self.model(input)
+    def call(self, x):
+        return self.model(x)
+        # return self.model(input)
 
-class NLayerDiscriminator(keras.Model):
+class NLayerDiscriminator(keras.layers.Layer):
     """" PatchGAN Discriminator """
     def __init__(self, input_nc, fmaps, padding, n_layers=3, norm='batch_norm'):
         """ Construct a PatchGAN discriminator
@@ -102,27 +100,27 @@ class NLayerDiscriminator(keras.Model):
         Parameters:
             input_nc (int)      -- the number of channel of input image
             fmaps (int)         -- the number of channel of feature maps
-            netD (str)           -- the name of model
+            netD (str)          -- the name of model
             n_layers (int)      -- the number of conv
             norm (str)          -- normalization layer: batch_norm | instance_norm | layer_norm
         """
         super(NLayerDiscriminator, self).__init__()
         _fmaps = fmaps
 
-        norm_layer = _get_norm_layer(norm)
+        # norm_layer = _get_norm_layer(norm)
         
         model = []
         for i in range(n_layers):
             fmaps = min(fmaps*2, _fmaps*8)
             model += [
                 keras.layers.Conv2D(fmaps, 4, strides=2, padding=padding),
-                norm_layer,
+                _get_norm_layer(norm),
                 keras.layers.LeakyReLU(alpha=0.2)
             ]
         
         model += [
             keras.layers.Conv2D(fmaps, 4, strides=1, padding=padding),
-            norm_layer,
+            _get_norm_layer(norm),
             keras.layers.LeakyReLU(alpha=0.2)
         ]
 
@@ -131,5 +129,5 @@ class NLayerDiscriminator(keras.Model):
 
         self.model = keras.Sequential(model)
 
-    def call(self, input):
-        return self.model(input)
+    def call(self, x):
+        return self.model(x)

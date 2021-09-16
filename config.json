@@ -1,17 +1,23 @@
 {
-    "load_size": 640,
-    "crop_size": 640,
-    "batch_size": 4,
-    "shuffle": "True",
+    "datapath": "/mnt/nfs/share/guangjiel/data/dataset/cycleGAN",
+    "resize_size": 700,
+    "crop_size": 600,
+    "channel": 1,
+    "train_batch_size": 5,
+    "test_batch_size": 10,
+    "buffer_size": 100,
     "repeat": null,
 
     "epochs": 100,
     "lr": 0.0002,
     "beta1": 0.5,
-    "save_epoch_freq": 5,
+    "save_epoch_freq": 50,
 
-    "loss_mode": "lsgan",
+    "loss_mode": "gan",
+    "gradient_penalty_mode":null,
+    "gradient_penalty_weight":10,
     "cycle_weight": 10,
+    "idenity_weight": 5,
 
     "input_nc": 1,
     "output_nc": 1,
@@ -21,5 +27,8 @@
     "n_downsampling": 3,
     "n_layers": 3,
     "norm": "instance_norm",
-    "padding": "same"
+    "padding": "same",
+
+    "log_path":"result/logs",
+    "is_Distributed": null
 }

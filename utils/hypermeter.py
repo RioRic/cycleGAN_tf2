@@ -6,10 +6,13 @@ class Config():
             config = json.load(f)
         
         """ hypermeter for dataloader """
-        self.load_size = config["load_size"]
+        self.datapath = config["datapath"]
+        self.resize_size = config["resize_size"]
         self.crop_size = config["crop_size"]
-        self.batch_size = config["batch_size"]
-        self.shuffle_buffer_size = config["shuffle"]
+        self.channel = config["channel"]
+        self.train_batch_size = config["train_batch_size"]
+        self.test_batch_size = config["test_batch_size"]
+        self.buffer_size = config["buffer_size"]
         self.repeat = config["repeat"]
 
 
@@ -20,6 +23,7 @@ class Config():
         self.save_epoch_freq = config["save_epoch_freq"]
         
         self.cycle_weight = config["cycle_weight"]
+        self.idenity_weight = config["idenity_weight"]
         self.loss_mode = config["loss_mode"]
 
         """ hypermeter for networks"""
@@ -32,5 +36,8 @@ class Config():
         self.n_layers = config["n_layers"]
         self.norm = config["norm"]
         self.padding = config["padding"]
+
+        self.log_path = config["log_path"]
+        self.is_Distributed = config["is_Distributed"]
 
         
