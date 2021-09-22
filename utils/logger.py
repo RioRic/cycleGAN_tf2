@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 
-
 def set_logger(work_dir=None, logfile_name='log.txt', logger_name='logger'):
     logger = logging.getLogger(logger_name)
     if logger.hasHandlers():

@@ -37,7 +37,7 @@ class ResBlock(keras.layers.Layer):
     def call(self, x):
         return self.res_block(x) + x
 
-class ResGenerator(keras.layers.Layer):
+class ResGenerator(keras.Model):
     def __init__(self, input_nc, output_nc, fmaps, norm="instance_norm", n_blocks=9, padding="same", n_downsampling=2):
         """ Constructe a resnet generator
         
@@ -90,9 +90,8 @@ class ResGenerator(keras.layers.Layer):
 
     def call(self, x):
         return self.model(x)
-        # return self.model(input)
 
-class NLayerDiscriminator(keras.layers.Layer):
+class NLayerDiscriminator(keras.Model):
     """" PatchGAN Discriminator """
     def __init__(self, input_nc, fmaps, padding, n_layers=3, norm='batch_norm'):
         """ Construct a PatchGAN discriminator
@@ -125,8 +124,6 @@ class NLayerDiscriminator(keras.layers.Layer):
         ]
 
         model += [keras.layers.Conv2D(fmaps, 1, strides=1, padding=padding)]
-        
-
         self.model = keras.Sequential(model)
 
     def call(self, x):

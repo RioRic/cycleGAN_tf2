@@ -4,10 +4,8 @@ from .network import ResGenerator, NLayerDiscriminator
 from .loss import get_adversarial_loss
 
 
-class CycleGANModel(keras.Model):
+class CycleGANModel(object):
     def __init__(self, opt):
-        super(CycleGANModel, self).__init__()
-
         self.opt = opt
         self.cycle_weight = opt.cycle_weight
                 
@@ -32,11 +30,6 @@ class CycleGANModel(keras.Model):
         self.d_loss_fn, self.g_loss_fn = get_adversarial_loss(mode=self.opt.loss_mode)
         self.train_g_loss_tracker = keras.metrics.Mean(name="g_loss")
         self.train_d_loss_tracker = keras.metrics.Mean(name="d_loss")
-    
-    @property
-    def metrics(self):
-        """ list metrics need to be reset() """
-        return [self.train_g_loss_tracker, self.train_d_loss_tracker] 
 
     @tf.function
     def train_step(self, data):
@@ -84,7 +77,6 @@ class CycleGANModel(keras.Model):
             D_B_loss = B_d_loss + A2B_d_loss
             D_loss = D_A_loss + D_B_loss
 
-
         G_gradients = tape.gradient(G_loss, self.G_A.trainable_variables + self.G_B.trainable_variables)
         D_gradients = tape.gradient(D_loss, self.D_A.trainable_variables + self.D_B.trainable_variables)
         self.optimizer_G.apply_gradients(zip(G_gradients, self.G_A.trainable_variables + self.G_B.trainable_variables))
@@ -93,12 +85,14 @@ class CycleGANModel(keras.Model):
         self.train_g_loss_tracker.update_state(G_loss)
         self.train_d_loss_tracker.update_state(D_loss)
         
-        loss_dict = {"total_A2B_g_loss": total_A2B_g_loss,
+        loss_dict = {"G_loss": G_loss,
+                     "D_loss": D_loss,
+                     "total_A2B_g_loss": total_A2B_g_loss,
                      "total_B2A_g_loss": total_B2A_g_loss,
                      "A_d_loss": A_d_loss,
                      "B_d_loss": B_d_loss,
                      "A2B_g_loss": A2B_g_loss,
-                     "B2A_g_l0ss": B2A_g_loss,
+                     "B2A_g_loss": B2A_g_loss,
                      "A2B2A_cycle_loss": A2B2A_cycle_loss,
                      "B2A2B_cycle_loss": B2A2B_cycle_loss,
                      "A2A_idenity_loss": A2A_idenity_loss,
